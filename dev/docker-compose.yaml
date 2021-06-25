@@ -35,18 +35,27 @@ services:
     ports:
       - "29092:29092"
       - "9092:9092"
+      - "9093:9093"
       - "9101:9101"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,SSL:SSL
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092,SSL://broker:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # ssl
+      KAFKA_SSL_KEYSTORE_FILENAME: kafka.broker.keystore.jks
+      KAFKA_SSL_KEY_CREDENTIALS: broker_sslkey_creds  
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: broker_keystore_creds
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: broker_truststore_creds
+      KAFKA_SSL_TRUSTSTORE_FILENAME: kafka.broker.truststore.jk
     networks:
       kafka:
+    volumes:
+      - ./certs:/etc/kafka/secrets
 
   rest-proxy:
     image: confluentinc/cp-kafka-rest:5.3.0
