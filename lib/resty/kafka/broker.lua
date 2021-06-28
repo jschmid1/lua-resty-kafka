@@ -39,6 +39,7 @@ function _M.send_receive(self, request)
         -- TODO: add reused_session for better performance of short-lived connections
         local _, err = sock:sslhandshake(false, self.host, self.config.ssl_verify)
         if err then
+            ngx.say(err)
             return nil, "failed to do SSL handshake with " ..
                         self.host .. ":" .. tostring(self.port) .. ": " .. err, true
         end

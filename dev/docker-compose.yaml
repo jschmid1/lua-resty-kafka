@@ -3,6 +3,7 @@ version: '2'
 services:
   nginx:
     build: ./
+    hostname: test
     depends_on: 
       - rest-proxy
     ports:
@@ -15,7 +16,7 @@ services:
       kafka:
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:5.3.0
+    image: confluentinc/cp-zookeeper:6.2.0
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -27,7 +28,7 @@ services:
       kafka:
 
   broker:
-    image: confluentinc/cp-kafka:5.3.0
+    image: confluentinc/cp-kafka:6.2.0
     hostname: broker
     container_name: broker
     depends_on:
@@ -41,24 +42,38 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,SSL:SSL
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092,SSL://broker:9093
+      KAFKA_ADVERTISED_HOST_NAME: broker
+      KAFKA_ADVERTISED_LISTENERS: SSL://broker:9093,PLAINTEXT_HOST://broker:9092 #,PLAINTEXT://broker:29092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       # ssl
-      KAFKA_SSL_KEYSTORE_FILENAME: kafka.broker.keystore.jks
-      KAFKA_SSL_KEY_CREDENTIALS: broker_sslkey_creds  
-      KAFKA_SSL_KEYSTORE_CREDENTIALS: broker_keystore_creds
-      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: broker_truststore_creds
-      KAFKA_SSL_TRUSTSTORE_FILENAME: kafka.broker.truststore.jk
+      KAFKA_SSL_KEYSTORE_FILENAME: keystore/kafka.keystore.jks
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: ssl_key_credentials
+      KAFKA_SSL_KEYSTORE_PASSWORD: confluent
+      KAFKA_SSL_TRUSTSTORE_FILENAME: truststore/kafka.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: ssl_key_credentials
+      KAFKA_SSL_KEY_PASSWORD: confluent
+      KAFKA_SSL_KEY_CREDENTIALS: ssl_key_credentials
+
+      KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SSL
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ''
+      KAFKA_SSL_CLIENT_AUTH: required
+
+      KAFKA_OPTS: -Djavax.net.debug=all
+
+
     networks:
       kafka:
     volumes:
-      - ./certs:/etc/kafka/secrets
+      - ./truststore:/etc/kafka/secrets/truststore
+      - ./keystore:/etc/kafka/secrets/keystore
+      - ./credentials:/etc/kafka/secrets/
+      - ./client.config:/etc/kafka/client.config
 
   rest-proxy:
-    image: confluentinc/cp-kafka-rest:5.3.0
+    image: confluentinc/cp-kafka-rest:6.2.0
     depends_on:
       - broker
     ports:
@@ -67,7 +82,7 @@ services:
     container_name: rest-proxy
     environment:
       KAFKA_REST_HOST_NAME: rest-proxy
-      KAFKA_REST_BOOTSTRAP_SERVERS: 'broker:29092'
+      KAFKA_REST_BOOTSTRAP_SERVERS: 'broker:9092'
       KAFKA_REST_LISTENERS: "http://0.0.0.0:8082"
     networks:
       kafka:
