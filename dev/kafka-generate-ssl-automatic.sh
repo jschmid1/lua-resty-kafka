@@ -3,6 +3,7 @@
 set -eu
 
 KEYSTORE_FILENAME="kafka.keystore.jks"
+CLIENT_KEYSTORE_FILENAME="client.keystore.jks"
 VALIDITY_IN_DAYS=3650
 DEFAULT_TRUSTSTORE_FILENAME="kafka.truststore.jks"
 TRUSTSTORE_WORKING_DIRECTORY="truststore"
@@ -15,6 +16,7 @@ KEYSTORE_SIGNED_CERT="cert-signed"
 COUNTRY="DE"
 STATE="BY"
 OU="FOO"
+CN_CLIENT="client"
 CN="broker"
 LOCATION="NUE"
 PASS="confluent"
@@ -83,7 +85,8 @@ trust_store_private_key_file=""
 
   keytool -keystore $TRUSTSTORE_WORKING_DIRECTORY/$DEFAULT_TRUSTSTORE_FILENAME \
     -alias CARoot -import -file $TRUSTSTORE_WORKING_DIRECTORY/ca-cert \
-    -noprompt -dname "C=$COUNTRY, ST=$STATE, L=$LOCATION, O=$OU, CN=$CN" -keypass $PASS -storepass $PASS
+    -noprompt -dname "C=$COUNTRY, ST=$STATE, L=$LOCATION, O=$OU, CN=$CN" -keypass $PASS -storepass $PASS \
+    -storetype pkcs12
 
   trust_store_file="$TRUSTSTORE_WORKING_DIRECTORY/$DEFAULT_TRUSTSTORE_FILENAME"
 
@@ -91,7 +94,8 @@ trust_store_private_key_file=""
   echo "$TRUSTSTORE_WORKING_DIRECTORY/$DEFAULT_TRUSTSTORE_FILENAME was created."
 
   # don't need the cert because it's in the trust store.
-  rm $TRUSTSTORE_WORKING_DIRECTORY/$CA_CERT_FILE
+  # PATCH: I do
+  # rm $TRUSTSTORE_WORKING_DIRECTORY/$CA_CERT_FILE
 
 echo
 echo "Continuing with:"
@@ -102,9 +106,7 @@ mkdir $KEYSTORE_WORKING_DIRECTORY
 
 echo
 echo "Now, a keystore will be generated. Each broker and logical client needs its own"
-echo "keystore. This script will create only one keystore. Run this script multiple"
-echo "times for multiple keystores."
-echo
+echo "keystore. "
 echo "     NOTE: currently in Kafka, the Common Name (CN) does not need to be the FQDN of"
 echo "           this host. However, at some point, this may change. As such, make the CN"
 echo "           the FQDN. Some operating systems call the CN prompt 'first / last name'"
@@ -114,60 +116,69 @@ echo "           the FQDN. Some operating systems call the CN prompt 'first / la
 
 keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME \
   -alias localhost -validity $VALIDITY_IN_DAYS -genkey -keyalg RSA \
-   -noprompt -dname "C=$COUNTRY, ST=$STATE, L=$LOCATION, O=$OU, CN=$CN" -keypass $PASS -storepass $PASS
+   -noprompt -dname "C=$COUNTRY, ST=$STATE, L=$LOCATION, O=$OU, CN=$CN" -keypass $PASS -storepass $PASS \
+   -storetype pkcs12
 
-echo
-echo "'$KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME' now contains a key pair and a"
-echo "self-signed certificate. Again, this keystore can only be used for one broker or"
-echo "one logical client. Other brokers or clients need to generate their own keystores."
+echo "Creating client keystore"
 
-echo
-echo "Fetching the certificate from the trust store and storing in $CA_CERT_FILE."
-echo
+keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$CLIENT_KEYSTORE_FILENAME \
+  -alias localhost -validity $VALIDITY_IN_DAYS -genkey -keyalg RSA \
+   -noprompt -dname "C=$COUNTRY, ST=$STATE, L=$LOCATION, O=$OU, CN=$CN_CLIENT" -keypass $PASS -storepass $PASS \
+   -storetype pkcs12
 
-keytool -keystore $trust_store_file -export -alias CARoot -rfc -file $CA_CERT_FILE -keypass $PASS -storepass $PASS
+for keystore in $KEYSTORE_FILENAME $CLIENT_KEYSTORE_FILENAME
+do
+  echo
+  echo "'$KEYSTORE_WORKING_DIRECTORY/$keystore' now contains a key pair and a"
+  echo "self-signed certificate."
 
-echo
-echo "Now a certificate signing request will be made to the keystore."
-echo
-keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias localhost \
-  -certreq -file $KEYSTORE_SIGN_REQUEST -keypass $PASS -storepass $PASS
+  echo
+  echo "Fetching the certificate from the trust store and storing in $CA_CERT_FILE."
+  echo
 
-echo
-echo "Now the trust store's private key (CA) will sign the keystore's certificate."
-echo
-openssl x509 -req -CA $CA_CERT_FILE -CAkey $trust_store_private_key_file \
-  -in $KEYSTORE_SIGN_REQUEST -out $KEYSTORE_SIGNED_CERT \
-  -days $VALIDITY_IN_DAYS -CAcreateserial
-# creates $KEYSTORE_SIGN_REQUEST_SRL which is never used or needed.
+  keytool -keystore $trust_store_file -export -alias CARoot -rfc -file $CA_CERT_FILE -keypass $PASS -storepass $PASS
 
-echo
-echo "Now the CA will be imported into the keystore."
-echo
-keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias CARoot \
-  -import -file $CA_CERT_FILE -keypass $PASS -storepass $PASS -noprompt
-rm $CA_CERT_FILE # delete the trust store cert because it's stored in the trust store.
+  echo
+  echo "Now a certificate signing request will be made to the keystore."
+  echo
+  keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$keystore -alias localhost \
+    -certreq -file $KEYSTORE_SIGN_REQUEST -keypass $PASS -storepass $PASS
 
-echo
-echo "Now the keystore's signed certificate will be imported back into the keystore."
-echo
-keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias localhost -import \
-  -file $KEYSTORE_SIGNED_CERT -keypass $PASS -storepass $PASS
+  echo
+  echo "Now the trust store's private key (CA) will sign the keystore's certificate."
+  echo
+  openssl x509 -req -CA $CA_CERT_FILE -CAkey $trust_store_private_key_file \
+    -in $KEYSTORE_SIGN_REQUEST -out $KEYSTORE_SIGNED_CERT \
+    -days $VALIDITY_IN_DAYS -CAcreateserial
+  # creates $KEYSTORE_SIGN_REQUEST_SRL which is never used or needed.
 
-# echo "Migrating keystore from JKS to PKCS12"
-# keytool -importkeystore -srckeystore keystore/kafka.keystore.jks -destkeystore keystore/kafka.keystore.jks -deststoretype pkcs12"
-# keytool -importkeystore -srckeystore truststore/kafka.truststore.jks -destkeystore truststore/kafka.truststore.jks -deststoretype pkcs12"
+  echo
+  echo "Now the CA will be imported into the keystore."
+  echo
+  keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$keystore -alias CARoot \
+    -import -file $CA_CERT_FILE -keypass $PASS -storepass $PASS -noprompt
+  rm $CA_CERT_FILE # delete the trust store cert because it's stored in the trust store.
 
-echo
-echo "All done!"
-echo
-echo "Deleting intermediate files. They are:"
-echo " - '$KEYSTORE_SIGN_REQUEST_SRL': CA serial number"
-echo " - '$KEYSTORE_SIGN_REQUEST': the keystore's certificate signing request"
-echo "   (that was fulfilled)"
-echo " - '$KEYSTORE_SIGNED_CERT': the keystore's certificate, signed by the CA, and stored back"
-echo "    into the keystore"
+  echo
+  echo "Now the keystore's signed certificate will be imported back into the keystore."
+  echo
+  keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$keystore -alias localhost -import \
+    -file $KEYSTORE_SIGNED_CERT -keypass $PASS -storepass $PASS
 
-  rm $KEYSTORE_SIGN_REQUEST_SRL
-  rm $KEYSTORE_SIGN_REQUEST
-  rm $KEYSTORE_SIGNED_CERT
+  echo
+  echo "All done!"
+  echo
+  echo "Deleting intermediate files. They are:"
+  echo " - '$KEYSTORE_SIGN_REQUEST_SRL': CA serial number"
+  echo " - '$KEYSTORE_SIGN_REQUEST': the keystore's certificate signing request"
+  echo "   (that was fulfilled)"
+  echo " - '$KEYSTORE_SIGNED_CERT': the keystore's certificate, signed by the CA, and stored back"
+  echo "    into the keystore"
+
+    rm $KEYSTORE_SIGN_REQUEST_SRL
+    rm $KEYSTORE_SIGN_REQUEST
+    rm $KEYSTORE_SIGNED_CERT
+
+
+done
+

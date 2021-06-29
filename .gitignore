@@ -1,1 +1,4 @@
 t/servroot
+
+dev/keystore
+dev/truststore
