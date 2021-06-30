@@ -47,12 +47,10 @@ function _M.send_receive(self, request)
         local ssl = require "ngx.ssl"
         local f = assert(io.open("/certs/certchain.crt"))
         local cert_data = f:read("*a")
-        ngx.say("cert_data " .. cert_data)
         f:close()
 
         local f = assert(io.open("/certs/privkey.key"))
         local key_data = f:read("*a")
-        ngx.say("key_data -> " .. key_data)
         f:close()
 
         local cert_der, err = ssl.cert_pem_to_der(cert_data)
@@ -67,18 +65,20 @@ function _M.send_receive(self, request)
             ngx_log(ERR, "error parsing cert: ", err)
             return nil, err
         end
+        ngx.say("parsed certificate chain -> " .. tostring(CERT))
 
         local CERT_KEY, err = ssl.parse_pem_priv_key(key_data)
         if not CERT_KEY then
             ngx_log(ERR, "unable to parse cert key file: ", err)
             return nil, err
         end
+        ngx.say("parsed private key -> " .. tostring(CERT_KEY))
 
         local ssl_params = {
             client_priv_key = CERT_KEY,
             client_cert = CERT,
         }       
-        local _, err = sock:tlshandshake(opts)
+        local _, err = sock:tlshandshake(ssl_params)
         if err then
             ngx.say(err)
             return nil, "failed to do SSL handshake with " ..
