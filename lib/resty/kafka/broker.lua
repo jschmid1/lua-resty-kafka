@@ -44,28 +44,26 @@ function _M.send_receive(self, request)
 
         -- Read-in certificate
 
-        local ssl = require "ngx.ssl"
+        -- TODO: This should be moved to the plugin
+        -- The lib should accept a ssl_config with cdata pointers
+        -- to the privkey and the certchain
+        -- here we do validation if both were set (meaning we want mTLS)
+        -- Leaving this here to have quicker turnaround times for testing
         local f = assert(io.open("/certs/certchain.crt"))
         local cert_data = f:read("*a")
         f:close()
-
-        local f = assert(io.open("/certs/privkey.key"))
-        local key_data = f:read("*a")
-        f:close()
-
-        local cert_der, err = ssl.cert_pem_to_der(cert_data)
-        if not cert_der then
-            ngx.say("err -> " .. err)
-            ngx.log(ngx.ERR, "failed to convert pem cert to der cert: ", err)
-            return
-        end
 
         local CERT, err = ssl.parse_pem_cert(cert_data)
         if not CERT then
             ngx_log(ERR, "error parsing cert: ", err)
             return nil, err
         end
+
         ngx.say("parsed certificate chain -> " .. tostring(CERT))
+
+        local f = assert(io.open("/certs/privkey.key"))
+        local key_data = f:read("*a")
+        f:close()
 
         local CERT_KEY, err = ssl.parse_pem_priv_key(key_data)
         if not CERT_KEY then
@@ -77,7 +75,8 @@ function _M.send_receive(self, request)
         local ssl_params = {
             client_priv_key = CERT_KEY,
             client_cert = CERT,
-        }       
+        }
+        -- TODO END
         local _, err = sock:tlshandshake(ssl_params)
         if err then
             ngx.say(err)

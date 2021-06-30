@@ -228,7 +228,9 @@ function _M.new(self, broker_list, client_config)
         keepalive_timeout = opts.keepalive_timeout or 600 * 1000,   -- 10 min
         keepalive_size = opts.keepalive_size or 2,
         ssl = opts.ssl or false,
-        ssl_verify = opts.ssl_verify or false
+        ssl_verify = opts.ssl_verify or false,
+        ssl_private_key = opts.ssl_private_key or nil,
+        ssl_cert = opts.cert or nil
     }
 
     local cli = setmetatable({
@@ -244,6 +246,9 @@ function _M.new(self, broker_list, client_config)
         meta_refresh(nil, cli, opts.refresh_interval / 1000) -- in ms
     end
 
+    -- TODO: if this is being executed whenever we create a producer, we should be caching this.
+    --       the likelyhood of this values chaning is very low which makes it a perfect candidate for
+    --       caching. Maybe set this on a ngx.timer
     -- populate `supported_api_versions` on module creation
     _fetch_apiversions(cli)
 
