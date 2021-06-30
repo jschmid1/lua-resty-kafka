@@ -3,6 +3,7 @@
 
 local response = require "resty.kafka.response"
 
+local ssl = require("ngx.ssl")
 
 local to_int32 = response.to_int32
 local setmetatable = setmetatable
@@ -21,7 +22,6 @@ function _M.new(self, host, port, socket_config)
     }, mt)
 end
 
-
 function _M.send_receive(self, request)
     local sock, err = tcp()
     if not sock then
@@ -34,10 +34,51 @@ function _M.send_receive(self, request)
     if not ok then
         return nil, err, true
     end
-
     if self.config.ssl then
         -- TODO: add reused_session for better performance of short-lived connections
-        local _, err = sock:sslhandshake(false, self.host, self.config.ssl_verify)
+        local opts = {
+            ssl_verify = self.config.ssl_verify,
+            client_cert = self.config.client_cert,
+            client_priv_key = self.config.client_priv_key,
+        }
+
+        -- Read-in certificate
+
+        local ssl = require "ngx.ssl"
+        local f = assert(io.open("/certs/certchain.crt"))
+        local cert_data = f:read("*a")
+        ngx.say("cert_data " .. cert_data)
+        f:close()
+
+        local f = assert(io.open("/certs/privkey.key"))
+        local key_data = f:read("*a")
+        ngx.say("key_data -> " .. key_data)
+        f:close()
+
+        local cert_der, err = ssl.cert_pem_to_der(cert_data)
+        if not cert_der then
+            ngx.say("err -> " .. err)
+            ngx.log(ngx.ERR, "failed to convert pem cert to der cert: ", err)
+            return
+        end
+
+        local CERT, err = ssl.parse_pem_cert(cert_data)
+        if not CERT then
+            ngx_log(ERR, "error parsing cert: ", err)
+            return nil, err
+        end
+
+        local CERT_KEY, err = ssl.parse_pem_priv_key(key_data)
+        if not CERT_KEY then
+            ngx_log(ERR, "unable to parse cert key file: ", err)
+            return nil, err
+        end
+
+        local ssl_params = {
+            client_priv_key = CERT_KEY,
+            client_cert = CERT,
+        }       
+        local _, err = sock:tlshandshake(opts)
         if err then
             ngx.say(err)
             return nil, "failed to do SSL handshake with " ..
