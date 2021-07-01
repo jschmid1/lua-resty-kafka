@@ -55,6 +55,13 @@ docker-compose -f docker-compose.dev.yaml -f docker-compose.yaml up
 This adds a `openresty` container that exposes the the route '/test' on port 8080
 which is configured to send a message to a kafka topic.
 
+From your host run:
+
+``` shell
+http :8080/test
+```
+
+And you should see messages being sent to Kafka
 
 To run the tests using `prove`:
 
