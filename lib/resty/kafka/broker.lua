@@ -3,8 +3,6 @@
 
 local response = require "resty.kafka.response"
 
-local ssl = require("ngx.ssl")
-
 local to_int32 = response.to_int32
 local setmetatable = setmetatable
 local tcp = ngx.socket.tcp
@@ -41,43 +39,9 @@ function _M.send_receive(self, request)
             client_cert = self.config.client_cert,
             client_priv_key = self.config.client_priv_key,
         }
-
-        -- Read-in certificate
-
-        -- TODO: This should be moved to the plugin
-        -- The lib should accept a ssl_config with cdata pointers
-        -- to the privkey and the certchain
-        -- here we do validation if both were set (meaning we want mTLS)
-        -- Leaving this here to have quicker turnaround times for testing
-        local f = assert(io.open("/certs/certchain.crt"))
-        local cert_data = f:read("*a")
-        f:close()
-
-        local CERT, err = ssl.parse_pem_cert(cert_data)
-        if not CERT then
-            ngx_log(ERR, "error parsing cert: ", err)
-            return nil, err
-        end
-
-        ngx.say("parsed certificate chain -> " .. tostring(CERT))
-
-        local f = assert(io.open("/certs/privkey.key"))
-        local key_data = f:read("*a")
-        f:close()
-
-        local CERT_KEY, err = ssl.parse_pem_priv_key(key_data)
-        if not CERT_KEY then
-            ngx_log(ERR, "unable to parse cert key file: ", err)
-            return nil, err
-        end
-        ngx.say("parsed private key -> " .. tostring(CERT_KEY))
-
-        local ssl_params = {
-            client_priv_key = CERT_KEY,
-            client_cert = CERT,
-        }
+        
         -- TODO END
-        local _, err = sock:tlshandshake(ssl_params)
+        local _, err = sock:tlshandshake(opts)
         if err then
             ngx.say(err)
             return nil, "failed to do SSL handshake with " ..

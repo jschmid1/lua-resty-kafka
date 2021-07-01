@@ -1,23 +1,6 @@
 
-version: '2'
+version: '2.1'
 services:
-  openresty:
-    build: openresty/
-    hostname: test
-    depends_on: 
-      - rest-proxy
-    ports:
-      - "8080:8081"
-    volumes:
-      - ../../lua-resty-kafka:/usr/local/lib/lua/lua-resty-kafka
-      - ./openresty/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf
-      - ./openresty/nginx.conf.d/:/usr/local/openresty/nginx/conf/conf.d/
-      - ./keystore/combined.key:/certs/combined.crt
-      - ./keystore/privkey.key:/certs/privkey.key
-      - ./keystore/certchain.crt:/certs/certchain.crt
-    networks:
-      kafka:
-
   zookeeper:
     image: confluentinc/cp-zookeeper:6.2.0
     hostname: zookeeper
@@ -67,10 +50,10 @@ services:
       KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ''
 
       # 'required' for mTLS
-      KAFKA_SSL_CLIENT_AUTH: required
+      # KAFKA_SSL_CLIENT_AUTH: required
 
       # 'requested' for TLS
-      # KAFKA_SSL_CLIENT_AUTH: requested
+      KAFKA_SSL_CLIENT_AUTH: requested
 
       # Enables tcp lib level debugging
       KAFKA_OPTS: -Djavax.net.debug=all
@@ -92,6 +75,11 @@ services:
       - 8082:8082
     hostname: rest-proxy
     container_name: rest-proxy
+    healthcheck:
+      test: ["CMD", "curl" ,"localhost:8082/topics"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
     environment:
       KAFKA_REST_HOST_NAME: rest-proxy
       KAFKA_REST_BOOTSTRAP_SERVERS: 'broker:9092'

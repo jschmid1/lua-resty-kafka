@@ -1,0 +1,12 @@
+version: '2.1'
+services:
+  tests:
+    build: ../tests/
+    depends_on:
+      rest-proxy:
+        condition: service_healthy
+    volumes:
+      - '../../lua-resty-kafka:/srv/lib'
+      - '../tests/t:/srv/t'
+    networks:
+      kafka:
