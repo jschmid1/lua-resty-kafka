@@ -1,15 +1,18 @@
 # vim:set ts=4 sw=4 et:
 
-use Test::Nginx::Socket::Lua;
+# use Test::Nginx::Socket::Lua;
+use Test::Nginx::Socket::Lua 'no_plan';
 use Cwd qw(cwd);
 
-plan tests => repeat_each();
+# repeat_each(1);
+
+# plan tests => repeat_each();
 
 my $pwd = cwd();
 
 our $HttpConfig = qq{
     lua_package_path "$pwd/lib/?.lua;;";
-    # lua_package_cpath "/usr/local/openresty-debug/lualib/?.so;/usr/local/openresty/lualib/?.so;;";
+    lua_package_cpath "/usr/local/openresty-debug/lualib/?.so;/usr/local/openresty/lualib/?.so;;";
 };
 
 $ENV{TEST_NGINX_RESOLVER} = '127.0.0.11';
@@ -31,7 +34,6 @@ __DATA__
     location /t {
         resolver 127.0.0.11;
         content_by_lua '
-
             local cjson = require "cjson"
             local client = require "resty.kafka.client"
 
@@ -90,6 +92,42 @@ GET /t
             end
 
             ngx.say(cjson.encode(partitions))
+        ';
+    }
+--- request
+GET /t
+--- response_body_like
+.*replicas.*
+--- no_error_log
+[error]
+
+
+
+=== TEST 3: timer refresh
+--- http_config eval: $::HttpConfig
+--- config
+    location /t {
+        resolver 127.0.0.11;
+        content_by_lua '
+
+            local cjson = require "cjson"
+            local client = require "resty.kafka.client"
+
+            local broker_list = {
+                { host = "$TEST_NGINX_KAFKA_HOST", port = $TEST_NGINX_KAFKA_PORT },
+            }
+
+            local messages = {
+                "halo world",
+            }
+
+            local cli = client:new(broker_list, { refresh_interval =  100 })
+            -- XXX just hack for test
+            cli.topic_partitions = { test = {}, test1 = {} }
+
+            ngx.sleep(0.5)
+
+            ngx.say(cjson.encode(cli.topic_partitions))
         ';
     }
 --- request

@@ -37,9 +37,9 @@ RUN ln -s /usr/local/openresty/nginx/sbin/nginx /usr/sbin/nginx
 
 WORKDIR /srv
 
-# TODO: remove client.t when done with testing
 ENTRYPOINT [ "./test-container-init.sh" ]
 
+# TODO: remove client.t when done with testing
 CMD [ "prove", "-v", "-r", "t/client.t" ]
 
 
