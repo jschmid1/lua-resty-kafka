@@ -136,3 +136,66 @@ GET /t
 .*replicas.*
 --- no_error_log
 [error]
+
+=== TEST 4: simple mTLS fetch
+--- http_config eval: $::HttpConfig
+--- config
+    location /t {
+        resolver 127.0.0.11;
+        content_by_lua_block {
+
+            local cjson = require "cjson"
+            local client = require "resty.kafka.client"
+            local ssl = require "ngx.ssl"
+
+            local broker_list = {
+                { host = "$TEST_NGINX_KAFKA_HOST", port = $TEST_NGINX_KAFKA_SSL_PORT },
+            }
+
+            local f = assert(io.open("/certs/certchain.crt"))
+            local cert_data = f:read("*a")
+            f:close()
+
+            local CERT, err = ssl.parse_pem_cert(cert_data)
+            if not CERT then
+                ngx_log(ERR, "error parsing cert: ", err)
+                return nil, err
+            end
+
+            local f = assert(io.open("/certs/privkey.key"))
+            local key_data = f:read("*a")
+            f:close()
+
+            local CERT_KEY, err = ssl.parse_pem_priv_key(key_data)
+            if not CERT_KEY then
+                ngx_log(ERR, "unable to parse cert key file: ", err)
+                return nil, err
+            end
+
+            local cli = client:new(broker_list, {
+                ssl = true,
+                client_cert = CERT,
+                client_priv_key = CERT_KEY,
+            })
+
+            local cli = client:new(broker_list, {
+                ssl = true,
+                client_cert = CERT,
+                client_priv_key = CERT_KEY,
+            })
+
+            local brokers, partitions = cli:fetch_metadata("test")
+            if not brokers then
+                ngx.say("fetch err:", partitions)
+                return
+            end
+
+            ngx.say(cjson.encode(partitions))
+        } 
+    }
+--- request
+GET /t
+--- response_body_like
+.*replicas.*
+--- no_error_log
+[error]

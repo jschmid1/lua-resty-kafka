@@ -1,10 +1,10 @@
-2021/07/01 13:18:23 [notice] 359#0: using the "epoll" event method
-2021/07/01 13:18:23 [notice] 359#0: openresty/1.19.3.2
-2021/07/01 13:18:23 [notice] 359#0: built by gcc 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04) 
-2021/07/01 13:18:23 [notice] 359#0: OS: Linux 5.8.0-59-generic
-2021/07/01 13:18:23 [notice] 359#0: getrlimit(RLIMIT_NOFILE): 1048576:1048576
-2021/07/01 13:18:23 [notice] 360#0: signal 15 (SIGTERM) received from 349, exiting
-2021/07/01 13:18:23 [notice] 360#0: signal 3 (SIGQUIT) received from 349, shutting down
-2021/07/01 13:18:23 [info] 360#0: epoll_wait() failed (4: Interrupted system call)
-2021/07/01 13:18:23 [notice] 360#0: exiting
-2021/07/01 13:18:23 [notice] 360#0: exit
+2021/07/02 13:22:56 [notice] 454#0: using the "epoll" event method
+2021/07/02 13:22:56 [notice] 454#0: openresty/1.19.3.2
+2021/07/02 13:22:56 [notice] 454#0: built by gcc 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04) 
+2021/07/02 13:22:56 [notice] 454#0: OS: Linux 5.8.0-59-generic
+2021/07/02 13:22:56 [notice] 454#0: getrlimit(RLIMIT_NOFILE): 1048576:1048576
+2021/07/02 13:22:56 [notice] 455#0: signal 15 (SIGTERM) received from 438, exiting
+2021/07/02 13:22:56 [notice] 455#0: signal 3 (SIGQUIT) received from 438, shutting down
+2021/07/02 13:22:56 [info] 455#0: epoll_wait() failed (4: Interrupted system call)
+2021/07/02 13:22:56 [notice] 455#0: exiting
+2021/07/02 13:22:56 [notice] 455#0: exit

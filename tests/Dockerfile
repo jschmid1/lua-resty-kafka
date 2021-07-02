@@ -40,6 +40,6 @@ WORKDIR /srv
 ENTRYPOINT [ "./test-container-init.sh" ]
 
 # TODO: remove client.t when done with testing
-CMD [ "prove", "-v", "-r", "t/client.t" ]
+CMD [ "prove", "-v", "-r", "t/" ]
 
 

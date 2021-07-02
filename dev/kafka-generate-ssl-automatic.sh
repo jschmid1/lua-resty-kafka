@@ -182,3 +182,10 @@ do
 
 done
 
+echo "Get a public and private key file to test the mTLS connection with"
+openssl pkcs12 -in $KEYSTORE_WORKING_DIRECTORY/$CLIENT_KEYSTORE_FILENAME -out $KEYSTORE_WORKING_DIRECTORY/combined.key -passin pass:$PASS -passout pass:$PASS
+echo "Only get the key"
+openssl pkcs12 -info -in $KEYSTORE_WORKING_DIRECTORY/$CLIENT_KEYSTORE_FILENAME -nodes -nocerts -passin pass:$PASS -out $KEYSTORE_WORKING_DIRECTORY/privkey.key
+echo "Only get the cert chain"
+openssl pkcs12 -info -in $KEYSTORE_WORKING_DIRECTORY/$CLIENT_KEYSTORE_FILENAME -nodes -nokeys -passin pass:$PASS -out $KEYSTORE_WORKING_DIRECTORY/certchain.crt
+
