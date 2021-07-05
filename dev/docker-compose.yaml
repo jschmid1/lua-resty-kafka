@@ -10,8 +10,13 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/zookeper_jaas.conf"
     networks:
       kafka:
+
+    volumes:
+      - ./zookeper_jaas.conf:/etc/kafka/zookeper_jaas.conf
 
   broker:
     image: confluentinc/cp-kafka:6.2.0
@@ -21,15 +26,17 @@ services:
       - zookeeper
     ports:
       - "29092:29092"
+      - "19093:19093"
       - "9092:9092"
       - "9093:9093"
       - "9101:9101"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,SSL:SSL
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,SSL:SSL,SASL_SSL:SASL_SSL,SASL_PLAINTEXT:SASL_PLAINTEXT
       KAFKA_ADVERTISED_HOST_NAME: broker
-      KAFKA_ADVERTISED_LISTENERS: SSL://broker:9093,PLAINTEXT_HOST://broker:9092,PLAINTEXT://broker:29092
+      KAFKA_LISTENERS:  SASL_SSL://broker:9093,PLAINTEXT_HOST://broker:9092,PLAINTEXT://broker:29092,SSL://broker:29093,SASL_PLAINTEXT://broker:19093
+      KAFKA_ADVERTISED_LISTENERS: SASL_SSL://broker:9093,PLAINTEXT_HOST://broker:9092,PLAINTEXT://broker:29092,SSL://broker:29093,SASL_PLAINTEXT://broker:19093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -45,20 +52,28 @@ services:
       KAFKA_SSL_KEY_PASSWORD: confluent
       KAFKA_SSL_KEY_CREDENTIALS: ssl_key_credentials
 
-      KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SSL
+      # Enable SASL SSL configuration
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_SASL_ENABLED_MECHANISMS: SASL_PLAIN,PLAIN
+      KAFKA_SASL_MECHANISMS: PLAIN
+
+      KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_PLAINTEXT
+
+      # KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SSL
       # Ignores name resolution
       KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ''
 
       # 'required' for mTLS
-      # KAFKA_SSL_CLIENT_AUTH: required
+      KAFKA_SSL_CLIENT_AUTH: 'none'
 
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
 
       # 'requested' for TLS
-      KAFKA_SSL_CLIENT_AUTH: requested
+      # KAFKA_SSL_CLIENT_AUTH: requested
 
       # Enables tcp lib level debugging
-      KAFKA_OPTS: -Djavax.net.debug=all
+      # KAFKA_OPTS: -Djavax.net.debug=all -Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf
+      KAFKA_OPTS: "-Djavax.net.debug=all -Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
 
 
     networks:
@@ -68,6 +83,8 @@ services:
       - ./keystore:/etc/kafka/secrets/keystore
       - ./credentials:/etc/kafka/secrets/
       - ./client.config:/etc/kafka/client.config
+      - ./broker-config/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf
+      # - ./log4j.properties:/etc/kafka/log4j.properties
 
   rest-proxy:
     image: confluentinc/cp-kafka-rest:6.2.0

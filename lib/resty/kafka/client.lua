@@ -44,9 +44,9 @@ local function _metadata_cache(self, topic)
     return nil, "not found topic"
 end
 
-local function metadata_encode(client_id, topics, num)
+local function metadata_encode(client_id, topics, num, api_version)
     local id = 0    -- hard code correlation_id
-    local req = request:new(request.MetadataRequest, id, client_id)
+    local req = request:new(request.MetadataRequest, id, client_id, api_version)
 
     req:int32(num)
 
@@ -134,8 +134,8 @@ local function _fetch_metadata(self, new_topic)
     local req = metadata_encode(self.client_id, topics, num)
 
     for i = 1, #broker_list do
-        local host, port = broker_list[i].host, broker_list[i].port
-        local bk = broker:new(host, port, sc)
+        local host, port, sasl_conf = broker_list[i].host, broker_list[i].port, broker_list[i].sasl_config
+        local bk = broker:new(host, port, sc, sasl_conf)
 
         local resp, err = bk:send_receive(req)
         if not resp then
@@ -176,7 +176,8 @@ local function _fetch_apiversions(self)
     local api_version = 0
     local req = request:new(request.ApiVersions, correlation_id, client_id, api_version)
     -- why is this necessary in metadata_encode? Not sure what the purpose is
-    --req:int32(num)
+    -- local num = 0
+    -- req:int32(num)
     local broker_list = self.broker_list
     local sc = self.socket_config
     for i = 1, #broker_list do
