@@ -10,7 +10,8 @@ RUN    echo "deb-src http://archive.ubuntu.com/ubuntu bionic main" >> /etc/apt/s
 RUN    sed 's/main$/main universe/' -i /etc/apt/sources.list
 RUN    apt-get update
 RUN    apt-get upgrade -y
-RUN    apt-get -y install wget vim git libpq-dev
+RUN    apt-get -y install wget vim git libpq-dev tcpdump luarocks
+RUN    luarocks install inspect
 
 # Openresty (Nginx)
 RUN  apt-get -y build-dep nginx \

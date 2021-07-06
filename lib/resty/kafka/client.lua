@@ -129,13 +129,14 @@ local function _fetch_metadata(self, new_topic)
         return nil, "not topic"
     end
 
+    local sasl_config = self.auth_config
     local broker_list = self.broker_list
     local sc = self.socket_config
     local req = metadata_encode(self.client_id, topics, num)
 
     for i = 1, #broker_list do
-        local host, port, sasl_conf = broker_list[i].host, broker_list[i].port, broker_list[i].sasl_config
-        local bk = broker:new(host, port, sc, sasl_conf)
+        local host, port = broker_list[i].host, broker_list[i].port
+        local bk = broker:new(host, port, sc, sasl_config)
 
         local resp, err = bk:send_receive(req)
         if not resp then
@@ -182,6 +183,7 @@ local function _fetch_apiversions(self)
     local sc = self.socket_config
     for i = 1, #broker_list do
         local host, port = broker_list[i].host, broker_list[i].port
+        -- apiversions do not need authentication
         local bk = broker:new(host, port, sc)
 
         local resp, err = bk:send_receive(req)
@@ -236,6 +238,7 @@ function _M.new(self, broker_list, client_config)
         client_priv_key = opts.client_priv_key or nil,
     }
 
+    
     local cli = setmetatable({
         broker_list = broker_list,
         topic_partitions = {},
@@ -243,6 +246,7 @@ function _M.new(self, broker_list, client_config)
         supported_api_versions = {},
         client_id = "worker" .. pid(),
         socket_config = socket_config,
+        auth_config = opts.auth_config or nil
     }, mt)
 
     if opts.refresh_interval then
@@ -253,7 +257,7 @@ function _M.new(self, broker_list, client_config)
     --       the likelyhood of this values chaning is very low which makes it a perfect candidate for
     --       caching. Maybe set this on a ngx.timer
     -- populate `supported_api_versions` on module creation
-    _fetch_apiversions(cli)
+    -- _fetch_apiversions(cli)
 
     return cli
 end

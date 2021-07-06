@@ -20,7 +20,7 @@ function _M.new(self, host, port, socket_config, sasl_config)
         host = host,
         port = port,
         config = socket_config,
-        auth = sasl_config,
+        auth = sasl_config or nil,
     }, mt)
 end
 
@@ -28,17 +28,17 @@ local function sasl_auth(sock, broker)
     local ok, err = _sasl_handshake(sock, broker)
     if not ok then
         if err then
-            ngx.say("sasl handshake failed -> " .. err)
+            ngx.say("sasl handshake failed -> See list of supported Mechanisms: " .. err)
             return nil, err
         end
-        return nil, "Unkown error" -- TODO
+        return nil, "Unkown Error"
     end
 
     local ok, err = _sasl_auth(sock, broker)
-    if  not ok  then
+    if not ok then
         return nil, err
     end
-    return 0
+    return 0, nil
 end
 
 function _M.send_receive(self, request)
@@ -114,6 +114,7 @@ function _sock_send_recieve(sock, request)
         end
     end
 
+    ngx.say("Reading back response with api_version -> " .. request.api_version)
     return response:new(data, request.api_version), nil, true
 
 end
@@ -128,20 +129,23 @@ function _sasl_handshake_decode(resp)
     ngx.say("err_code -> " .. err_code)
     ngx.say("mechanisms -> " .. mechanisms)
     if err_code ~= 0 then
-        return nil, error_msg
+        return err_code, mechanisms
     end
-    return 0
+    return 0, nil
 end
 
 
 function _sasl_auth_decode(resp)
     local err_code = resp:int16()
     local error_msg  = resp:nullable_string()
+    ngx.say("sasl auth decode, error_code " .. err_code)
+    ngx.say("sasl auth decode, error_message " .. error_msg)
     local auth_bytes  = resp:bytes()
+    ngx.say("sasl auth decode, auth_bytes " .. auth_bytes)
     if err_code ~= 0 then
         return nil, error_msg
     end
-    return 0
+    return 0, nil
 end
 
 
@@ -154,13 +158,22 @@ function _sasl_auth(sock, brk)
     ngx.say("Authenticating with user -> " .. user)
     local password = brk.auth.password
     ngx.say("Authenticating with pwd-> " .. password)
-    local msg = sasl.encode(mechanism, nil, user, password)
+    local msg = sasl.encode(mechanism, user, password)
     req:bytes(msg)
     local resp, err = _sock_send_recieve(sock, req)
     if not resp  then
+        ngx.say("Authentication failed with " .. err)
         return nil, err
     end
-    return _sasl_auth_decode(resp)
+    ngx.say("Authentication succeeded, decoding sasl_auth response")
+    local rc, err = _sasl_auth_decode(resp)
+    if not rc then
+        if err then
+            return nil, err
+        end
+        return nil, "Unkown Error during _sasl_auth"
+    end
+    return rc, err
 end
 
 
@@ -168,7 +181,6 @@ function _sasl_handshake(sock, brk)
     local cli_id = "worker" .. pid()
     local api_version = request.API_VERSION_V1
 
-    ngx.say("SASL_HANDSHAKE WITH API_VERSION -> " .. api_version)
     local req = request:new(request.SaslHandshakeRequest, 0, cli_id, api_version)
     local mechanism = brk.auth.mechanism
     req:string(mechanism)
@@ -178,7 +190,12 @@ function _sasl_handshake(sock, brk)
         ngx.say("No response from sock_send_receive -> " .. err)
         return nil, err
     end
-    return _sasl_handshake_decode(resp)
+    local rc, mechanism = _sasl_handshake_decode(resp)
+    -- the presence of mechanisms indicate that the mechanism used isn't enabled on the Kafka server.
+    if mechanism then
+        return nil, mechanism
+    end
+    return rc, nil
 end
 
 
