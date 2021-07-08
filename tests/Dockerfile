@@ -27,8 +27,6 @@ RUN  wget https://openresty.org/download/openresty-1.19.3.2.tar.gz \
   && make \
   && make install 
 
-RUN cpan -i Test::Nginx::Socket
-
 RUN luarocks install busted 
 RUN luarocks install inspect
 
@@ -42,6 +40,6 @@ WORKDIR /srv
 
 ENTRYPOINT [ "./test-container-init.sh" ]
 
-# CMD [ "prove", "-v", "-r", "t/" ]
+# CMD [ "cd", "/spec", "busted", "test_spec.lua" ]
 
 
