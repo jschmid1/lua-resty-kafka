@@ -25,47 +25,6 @@ run_tests();
 
 __DATA__
 
-=== TEST 1: simple pack
---- http_config eval: $::HttpConfig
---- config
-    location /t {
-        resolver 127.0.0.11;
-        content_by_lua '
-
-            local request = require "resty.kafka.request"
-            local req = request:new(request.ProduceRequest, 1, "clientid")
-
-            local function printx()
-                local str = req._req[#req._req]
-                for i = 1, #str do
-                    ngx.print(bit.tohex(string.byte(str, i), 2))
-                end
-                ngx.say("")
-            end
-
-            req:int16(-1 * math.pow(2, 15)); printx()
-            req:int16(math.pow(2, 15) - 1); printx()
-            req:int16(-1); printx()
-            req:int32(-1 * math.pow(2, 31)); printx()
-            req:int32(math.pow(2, 31) - 1); printx()
-            req:int64(-1LL * math.pow(2, 32) * math.pow(2, 31)); printx()
-            req:int64(1ULL * math.pow(2, 32) * math.pow(2, 31) - 1); printx()
-        ';
-    }
---- request
-GET /t
---- response_body
-8000
-7fff
-ffff
-80000000
-7fffffff
-8000000000000000
-7fffffffffffffff
---- no_error_log
-[error]
-
-
 
 === TEST 2: response unpack
 --- http_config eval: $::HttpConfig
