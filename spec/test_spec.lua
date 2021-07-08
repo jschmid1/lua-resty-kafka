@@ -4,6 +4,7 @@ local ssl = require("ngx.ssl")
 local ringbuffer = require "resty.kafka.ringbuffer"
 local sendbuffer = require "resty.kafka.sendbuffer"
 local request = require "resty.kafka.request"
+local response = require "resty.kafka.response"
 
 local f = assert(io.open("/certs/certchain.crt"))
 local cert_data = f:read("*a")
@@ -551,6 +552,21 @@ local function convert_to_hex(req)
     return ret
 end
 
+
+local function compare(func, number)
+    local req = request:new(request.ProduceRequest, 1, "clientid")
+    req:int32(100)
+    local correlation_id = req._req[#req._req]
+
+    req[func](req, number)
+    local str = correlation_id .. req._req[#req._req]
+
+    local resp = response:new(str, req.api_version)
+
+    local cnumber = resp[func](resp)
+    return tostring(number), number == cnumber
+end
+
 describe("test request lib TODO", function()
   -- TODO: test the new string, nullable_string and bytes as well
 
@@ -577,6 +593,28 @@ describe("test request lib TODO", function()
     req:int64(1ULL * math.pow(2, 32) * math.pow(2, 31) - 1)
     local hex = convert_to_hex(req)
     assert.is.equal(hex, "7fffffffffffffff")
+  end)
+
+  it("test response unpacking", function()
+
+    local num, eq = compare("int16", 0x7fff)
+    assert.is.equal(num, "32767")
+    assert.is_true(eq)
+    local num, eq = compare("int16", 0x7fff * -1 - 1)
+    assert.is.equal(num, "-32768")
+    assert.is_true(eq)
+    local num, eq = compare("int32", 0x7fffffff)
+    assert.is.equal(num, "2147483647")
+    assert.is_true(eq)
+    local num, eq = compare("int32", 0x7fffffff * -1 - 1)
+    assert.is.equal(num, "-2147483648")
+    assert.is_true(eq)
+    local num, eq = compare("int64", 1ULL * math.pow(2, 32) * math.pow(2, 31) - 1)
+    assert.is.equal(num, "9223372036854775807ULL")
+    assert.is_true(eq)
+    local num, eq = compare("int64", -1LL * math.pow(2, 32) * math.pow(2, 31))
+    assert.is.equal(num, "-9223372036854775808LL")
+    assert.is_true(eq)
   end)
 
 end)
